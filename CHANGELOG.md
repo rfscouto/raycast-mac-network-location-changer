@@ -1,3 +1,5 @@
 # MacOS Location Changer Changelog
 
-## [Initial Version] - {PR_MERGE_DATE}
+## [1.0.0] - 2025-05-05
+### Added
+-  Initial release: allow changing Mac network location directly from Raycast

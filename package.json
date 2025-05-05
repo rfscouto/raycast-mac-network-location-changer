@@ -4,8 +4,9 @@
   "title": "MacOS Location Changer",
   "description": "Lists and allows changing the current network location on Mac OS.",
   "icon": "extension-icon.png",
-  "author": "rcoo",
+  "author": "rcouto",
   "owner": "ruicouto-com",
+  "version": "1.0.0",
   "categories": [
     "System",
     "Developer Tools"

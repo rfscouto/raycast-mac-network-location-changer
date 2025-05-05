@@ -1,40 +1,92 @@
-import { Form, ActionPanel, Action, showToast } from "@raycast/api";
+import { List, ActionPanel, Action, showToast, Toast, Icon } from "@raycast/api";
+import { useEffect, useState, useCallback } from "react";
+import { exec } from "child_process";
 
-type Values = {
-  textfield: string;
-  textarea: string;
-  datepicker: Date;
-  checkbox: boolean;
-  dropdown: string;
-  tokeneditor: string[];
-};
+const SCSELECT = "/usr/sbin/scselect";
+
+function parseLocations(output: string): { name: string; active: boolean }[] {
+  const lines = output.split("\n").filter(line => line.trim().length > 0);
+  const locations: { name: string; active: boolean }[] = [];
+  for (const line of lines) {
+    const match = line.match(/(\*?)\s*[A-Fa-f0-9\-]+\s+\((.+?)\)/);
+    if (match) {
+      locations.push({
+        name: match[2],
+        active: match[1] === "*",
+      });
+    }
+  }
+  return locations;
+}
 
 export default function Command() {
-  function handleSubmit(values: Values) {
-    console.log(values);
-    showToast({ title: "Submitted form", message: "See logs for submitted values" });
+  const [locations, setLocations] = useState<{ name: string; active: boolean }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchLocations = useCallback(() => {
+    setLoading(true);
+    exec(SCSELECT, (error, stdout, stderr) => {
+      if (error) {
+        setError(stderr || error.message);
+        setLoading(false);
+        return;
+      }
+      try {
+        const parsed = parseLocations(stdout);
+        if (parsed.length === 0) {
+          setError("No network locations found or parsing failed.");
+        } else {
+          setLocations(parsed);
+          setError(null);
+        }
+      } catch (e) {
+        setError("Failed to parse locations: " + String(e));
+      }
+      setLoading(false);
+    });
+  }, []);
+
+  useEffect(() => {
+    fetchLocations();
+  }, [fetchLocations]);
+
+  const switchLocation = (name: string) => {
+    exec(`${SCSELECT} "${name}"`, (error) => {
+      if (error) {
+        showToast({ style: Toast.Style.Failure, title: "Failed to switch location" });
+      } else {
+        showToast({ style: Toast.Style.Success, title: `Switched to ${name}` });
+        fetchLocations();
+      }
+    });
+  };
+
+  if (error) {
+    return <List isLoading={false}><List.EmptyView title="Error" description={error} /></List>;
   }
 
   return (
-    <Form
-      actions={
-        <ActionPanel>
-          <Action.SubmitForm onSubmit={handleSubmit} />
-        </ActionPanel>
-      }
-    >
-      <Form.Description text="This form showcases all available form elements." />
-      <Form.TextField id="textfield" title="Text field" placeholder="Enter text" defaultValue="Raycast" />
-      <Form.TextArea id="textarea" title="Text area" placeholder="Enter multi-line text" />
-      <Form.Separator />
-      <Form.DatePicker id="datepicker" title="Date picker" />
-      <Form.Checkbox id="checkbox" title="Checkbox" label="Checkbox Label" storeValue />
-      <Form.Dropdown id="dropdown" title="Dropdown">
-        <Form.Dropdown.Item value="dropdown-item" title="Dropdown Item" />
-      </Form.Dropdown>
-      <Form.TagPicker id="tokeneditor" title="Tag picker">
-        <Form.TagPicker.Item value="tagpicker-item" title="Tag Picker Item" />
-      </Form.TagPicker>
-    </Form>
+    <List isLoading={loading} searchBarPlaceholder="Search locations...">
+      {locations.map((loc) => (
+        <List.Item
+          key={loc.name}
+          title={loc.name}
+          icon={{
+            source: loc.active ? Icon.CheckCircle : Icon.Circle,
+            tintColor: loc.active ? "#34C759" : "#8E8E93",
+          }}
+          accessories={[{ text: loc.active ? "Active" : "" }]}
+          actions={
+            <ActionPanel>
+              {!loc.active && (
+                <Action title={`Switch to ${loc.name}`} onAction={() => switchLocation(loc.name)} />
+              )}
+              <Action title="Refresh" onAction={fetchLocations} />
+            </ActionPanel>
+          }
+        />
+      ))}
+    </List>
   );
 }
