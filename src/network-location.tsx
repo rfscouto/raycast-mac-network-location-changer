@@ -8,7 +8,7 @@ function parseLocations(output: string): { name: string; active: boolean }[] {
   const lines = output.split("\n").filter(line => line.trim().length > 0);
   const locations: { name: string; active: boolean }[] = [];
   for (const line of lines) {
-    const match = line.match(/(\*?)\s*[A-Fa-f0-9\-]+\s+\((.+?)\)/);
+    const match = line.match(/(\*?)\s*[A-Fa-f0-9-]+\s+\((.+?)\)/);
     if (match) {
       locations.push({
         name: match[2],
